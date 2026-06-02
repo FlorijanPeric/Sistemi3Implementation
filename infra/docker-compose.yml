@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: SISIII2026_89231252
+      MYSQL_USER: studenti
+      MYSQL_PASSWORD: S039C8R7
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_USER: studenti
+      PMA_PASSWORD: S039C8R7
+    ports:
+      - "8080:80"
+volumes:
+  db_data:
