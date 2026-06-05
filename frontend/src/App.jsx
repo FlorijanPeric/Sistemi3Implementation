@@ -2,17 +2,13 @@ import React, { useContext } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Flowers from './pages/Flowers'
 import Recommendations from './pages/Recommendations'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
-import AdminRoute from './components/AdminRoute'
 import Suppliers from './pages/Suppliers'
-import Admin from './pages/Admin'
 import { AuthContext } from './context/AuthContext'
 
 function AppShell(){
@@ -56,10 +52,6 @@ function AppShell(){
               <li className="nav-item"><Link className="nav-link premium-nav-link" to="/suppliers">Suppliers</Link></li>
               <li className="nav-item"><Link className="nav-link premium-nav-link" to="/orders">Orders</Link></li>
               <li className="nav-item"><Link className="nav-link premium-nav-link" to="/recommendations">Recommendations</Link></li>
-              {/* Admin link — only visible to admin users */}
-              {user?.role === 'admin' && (
-                <li className="nav-item"><Link className="nav-link premium-nav-link" to="/admin">Admin</Link></li>
-              )}
             </ul>
             <ul className="navbar-nav ms-auto align-items-lg-center gap-2">
               {token ? (
@@ -89,13 +81,10 @@ function AppShell(){
           <Route path="/" element={<Dashboard/>} />
           <Route path="/login" element={<Login/>} />
           <Route path="/register" element={<Register/>} />
-          <Route path="/forgot-password" element={<ForgotPassword/>} />
-          <Route path="/reset-password" element={<ResetPassword/>} />
           <Route path="/flowers" element={<Flowers/>} />
           <Route path="/suppliers" element={<Suppliers/>} />
           <Route path="/orders" element={<ProtectedRoute><Orders/></ProtectedRoute>} />
           <Route path="/recommendations" element={<ProtectedRoute><Recommendations/></ProtectedRoute>} />
-          <Route path="/admin" element={<AdminRoute><Admin/></AdminRoute>} />
         </Routes>
       </main>
     </BrowserRouter>

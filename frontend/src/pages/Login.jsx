@@ -67,8 +67,6 @@ export default function Login(){
             </form>
             <div className="text-center mt-3">
               <Link to="/register">Need an account? Register</Link>
-              <br />
-              <Link to="/forgot-password" className="text-muted small mt-2 d-inline-block">Forgot password?</Link>
             </div>
           </div>
         </div>

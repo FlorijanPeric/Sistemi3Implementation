@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getTopFlowers, getMonthlyOrders } from '../api/stats'
+import { getOrders } from '../api/orders'
 import { getFlowers } from '../api/flowers'
-import { getDashboardStats } from '../api/dashboard'
 
-// Bar chart: shows relative value of each flower by price
-function BarChart({ data, width=600, height=200 }){
-  const max = Math.max(...data.map(d=>d.value), 1)
-  const barWidth = Math.floor(width / data.length)
+function BarChart({ data, width = 600, height = 200 }) {
+  const max = Math.max(...data.map(d => d.value), 1)
+  const barWidth = Math.floor(width / Math.max(data.length, 1))
   return (
     <svg width={width} height={height}>
       <defs>
@@ -15,12 +15,15 @@ function BarChart({ data, width=600, height=200 }){
           <stop offset="100%" stopColor="#C97D8A" />
         </linearGradient>
       </defs>
-      {data.map((d, i)=>{
-        const h = (d.value / max) * (height - 28)
+      {data.map((d, i) => {
+        const h = Math.max(4, (d.value / max) * (height - 28))
         return (
-          <g key={i} transform={`translate(${i*barWidth},0)`}>
-            <rect x={5} y={height - h - 22} width={barWidth-10} height={h} rx="10" fill="url(#barGradient)" />
-            <text x={(barWidth-10)/2} y={height-6} fontSize="11" textAnchor="middle" className="svg-axis-label">{d.label}</text>
+          <g key={i} transform={`translate(${i * barWidth},0)`}>
+            <rect x={5} y={height - h - 22} width={barWidth - 10} height={h} rx="10" fill="url(#barGradient)" />
+            <title>{d.label}: {d.value}</title>
+            <text x={(barWidth - 10) / 2} y={height - 6} fontSize="11" textAnchor="middle" className="svg-axis-label">
+              {d.label.length > 8 ? d.label.slice(0, 7) + '…' : d.label}
+            </text>
           </g>
         )
       })}
@@ -28,61 +31,82 @@ function BarChart({ data, width=600, height=200 }){
   )
 }
 
-// Format a date string for display in the recent orders table
-function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString()
+function LineChart({ data, width = 600, height = 200 }) {
+  const max = Math.max(...data.map(d => d.value), 1)
+  const stepX = data.length > 1 ? width / (data.length - 1) : width
+  const points = data.map((d, i) => `${i * stepX},${height - (d.value / max) * (height - 20) - 10}`).join(' ')
+  return (
+    <svg width={width} height={height}>
+      <defs>
+        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#4D6B5D" />
+          <stop offset="100%" stopColor="#C97D8A" />
+        </linearGradient>
+      </defs>
+      {data.length > 1 && (
+        <polyline points={points} fill="none" stroke="url(#lineGradient)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+      )}
+      {data.map((d, i) => (
+        <g key={i}>
+          <circle cx={i * stepX} cy={height - (d.value / max) * (height - 20) - 10} r={4} fill="#C97D8A" stroke="#fff" strokeWidth="2" />
+          <title>{d.label}: {d.value} orders</title>
+          <text x={i * stepX} y={height - 2} fontSize="11" textAnchor="middle" className="svg-axis-label">{d.label}</text>
+        </g>
+      ))}
+    </svg>
+  )
 }
 
-// Badge color by order status
-function StatusBadge({ status }) {
-  const map = {
-    pending: 'warning',
-    confirmed: 'info',
-    delivered: 'success',
-    cancelled: 'danger',
-  }
-  const color = map[status] || 'secondary'
-  return <span className={`badge bg-${color}`}>{status}</span>
-}
-
-export default function Dashboard(){
+export default function Dashboard() {
+  const [topFlowers, setTopFlowers] = useState([])
+  const [monthlyData, setMonthlyData] = useState([])
+  const [orders, setOrders] = useState([])
   const [flowers, setFlowers] = useState([])
-  // stats holds the shape returned by GET /api/dashboard/stats
-  const [dashStats, setDashStats] = useState(null)
 
-  useEffect(()=>{
-    async function load(){
-      // Flowers are fetched separately because the bar chart needs individual items
-      try{
+  useEffect(() => {
+    async function load() {
+      try {
+        const tf = await getTopFlowers()
+        if (tf && tf.flowers) setTopFlowers(tf.flowers)
+      } catch { /* public endpoint, ignore */ }
+
+      try {
+        const mo = await getMonthlyOrders()
+        if (mo && mo.months) setMonthlyData(mo.months)
+      } catch { /* public endpoint, ignore */ }
+
+      try {
+        const o = await getOrders()
+        if (o && o.orders) setOrders(o.orders)
+      } catch { /* requires auth, may fail */ }
+
+      try {
         const f = await getFlowers()
-        if(f && f.flowers) setFlowers(f.flowers)
-      }catch(e){ /* ignore */ }
-
-      // Real aggregate stats from the dashboard endpoint
-      try{
-        const s = await getDashboardStats()
-        if(s && s.stats) setDashStats(s.stats)
-      }catch(e){ /* ignore */ }
+        if (f && f.flowers) setFlowers(f.flowers)
+      } catch { /* ignore */ }
     }
     load()
-  },[])
+  }, [])
 
-  // Bar chart data: use real flowers when available, fall back to placeholders
-  const top = (flowers.length ? flowers : [
-    { flower_id:1, name:'Rose', unit_price:1.2 },
-    { flower_id:2, name:'Tulip', unit_price:0.9 },
-    { flower_id:3, name:'Lily', unit_price:1.5 }
-  ]).slice(0,6).map((f,i)=> ({ label: f.name, value: Math.round((f.unit_price||1) * (10 - i)) }))
+  // Bar chart: top flowers by actual order quantity
+  const barData = topFlowers.length
+    ? topFlowers.map(f => ({ label: f.name, value: f.total_qty || 1 }))
+    : flowers.slice(0, 6).map((f, i) => ({ label: f.name, value: Math.max(1, 6 - i) }))
 
-  // Top-level stat cards — wired to real backend numbers
-  const summaryStats = [
-    { label: 'Orders',    value: dashStats ? dashStats.total_orders    : '…', note: 'Total orders in the system' },
-    { label: 'Flowers',   value: dashStats ? dashStats.total_flowers   : '…', note: 'Available flower types' },
-    { label: 'Suppliers', value: dashStats ? dashStats.suppliers_count : '…', note: 'Active suppliers' },
+  // Line chart: monthly order counts from real data
+  const lineData = monthlyData.length
+    ? monthlyData.map(m => ({ label: m.label, value: m.order_count }))
+    : ['Jan','Feb','Mar','Apr','May','Jun'].map((m, i) => ({ label: m, value: 0 }))
+
+  const stats = [
+    { label: 'Orders', value: orders.length, note: 'Active and historical orders' },
+    { label: 'Flowers', value: flowers.length, note: 'Seasonal and available flowers' },
+    {
+      label: 'Top demand',
+      value: topFlowers.length ? topFlowers[0].name : '—',
+      note: topFlowers.length ? `${topFlowers[0].total_qty} units ordered` : 'No orders yet',
+    },
   ]
-
-  const recentOrders = dashStats?.recent_orders ?? []
 
   return (
     <div className="dashboard-page fade-up">
@@ -99,7 +123,7 @@ export default function Dashboard(){
           </div>
 
           <div className="stats-grid mt-4 mt-lg-5">
-            {summaryStats.map((stat) => (
+            {stats.map((stat) => (
               <div className="metric-card" key={stat.label}>
                 <div className="card-body">
                   <div className="metric-label">{stat.label}</div>
@@ -115,67 +139,44 @@ export default function Dashboard(){
       <div className="section-heading">
         <div>
           <h2 className="page-title">Performance overview</h2>
-          <p className="page-intro">Flower assortment and recent order activity.</p>
+          <p className="page-intro">Flower demand and monthly ordering momentum based on real order history.</p>
         </div>
       </div>
 
       <div className="row g-4 mb-4">
-        {/* Bar chart — flower prices as a proxy for relative demand */}
         <div className="col-lg-6">
           <div className="card panel-card chart-shell h-100">
             <div className="card-body">
               <div className="section-heading">
                 <div>
-                  <h3 className="card-title h5 mb-1">Top Flowers</h3>
-                  <p className="page-intro">Best-performing flowers in the current assortment.</p>
+                  <h3 className="card-title h5 mb-1">Top Flowers by Orders</h3>
+                  <p className="page-intro">Most ordered flowers — total quantity across all confirmed orders.</p>
                 </div>
               </div>
               <div className="chart-wrap">
-                <BarChart data={top} width={520} height={240} />
+                {barData.every(d => d.value === 0 || d.value === 1) && topFlowers.length === 0
+                  ? <p className="text-muted text-center py-4">No order data yet.</p>
+                  : <BarChart data={barData} width={520} height={240} />
+                }
               </div>
             </div>
           </div>
         </div>
-
-        {/* Recent orders table — replaces the random monthly chart */}
         <div className="col-lg-6">
-          <div className="card panel-card h-100">
+          <div className="card panel-card chart-shell h-100">
             <div className="card-body">
-              <div className="section-heading mb-3">
+              <div className="section-heading">
                 <div>
-                  <h3 className="card-title h5 mb-1">Recent Orders</h3>
-                  <p className="page-intro">Last 5 orders placed in the system.</p>
+                  <h3 className="card-title h5 mb-1">Monthly Orders (last 6 months)</h3>
+                  <p className="page-intro">Number of confirmed orders per month.</p>
                 </div>
               </div>
-
-              {recentOrders.length === 0 ? (
-                <p className="text-muted">No orders yet.</p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>Florist</th>
-                        <th>Date</th>
-                        <th>Items</th>
-                        <th>Value</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentOrders.map((o) => (
-                        <tr key={o.order_id}>
-                          <td>{o.florist}</td>
-                          <td>{formatDate(o.date)}</td>
-                          <td>{o.items}</td>
-                          <td>{o.value != null ? `€${Number(o.value).toFixed(2)}` : '—'}</td>
-                          <td><StatusBadge status={o.status} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="chart-wrap">
+                {lineData.every(d => d.value === 0)
+                  ? <p className="text-muted text-center py-4">No monthly data yet.</p>
+                  : <LineChart data={lineData} width={520} height={240} />
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -193,19 +194,19 @@ export default function Dashboard(){
             <div className="col-md-4">
               <div className="stat-card h-100">
                 <span>Orders</span>
-                <h3>{dashStats ? dashStats.total_orders : '…'}</h3>
+                <h3>{orders.length}</h3>
               </div>
             </div>
             <div className="col-md-4">
               <div className="stat-card h-100">
                 <span>Flowers</span>
-                <h3>{dashStats ? dashStats.total_flowers : '…'}</h3>
+                <h3>{flowers.length}</h3>
               </div>
             </div>
             <div className="col-md-4">
               <div className="stat-card h-100">
-                <span>Suppliers</span>
-                <h3>{dashStats ? dashStats.suppliers_count : '…'}</h3>
+                <span>Most ordered</span>
+                <h3>{topFlowers.length ? topFlowers[0].name : '—'}</h3>
               </div>
             </div>
           </div>
