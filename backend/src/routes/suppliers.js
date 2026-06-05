@@ -12,12 +12,22 @@ router.get('/', async (req, res, next) => {
 				d.naziv,
 				d.ocena,
 				u.e_posta,
-				COUNT(r.roza_id) AS flower_count
+				COUNT(DISTINCT r.roza_id) AS flower_count,
+				ROUND(AVG(r.cena_na_enoto), 2) AS avg_price,
+				ROUND(AVG(
+					CASE
+						WHEN n.datum_dostave IS NOT NULL AND n.datum_narocila IS NOT NULL
+						THEN DATEDIFF(n.datum_dostave, n.datum_narocila)
+					END
+				), 1) AS avg_delivery_days
 			FROM dobavitelj d
 			JOIN uporabnik u ON u.uporabnik_id = d.uporabnik_id
 			LEFT JOIN roza r ON r.dobavitelj_id = d.dobavitelj_id
+			LEFT JOIN postavka_narocila p ON p.roza_id = r.roza_id
+			LEFT JOIN narocilo n ON n.narocilo_id = p.narocilo_id
+			  AND n.status IN ('potrjeno','dostavljeno')
 			GROUP BY d.dobavitelj_id, d.naziv, d.ocena, u.e_posta
-			ORDER BY d.naziv ASC
+			ORDER BY d.ocena DESC, avg_price ASC
 		`);
 
 		res.json({
@@ -28,6 +38,8 @@ router.get('/', async (req, res, next) => {
 				rating: row.ocena,
 				email: row.e_posta,
 				flower_count: row.flower_count,
+				avg_price: row.avg_price,
+				avg_delivery_days: row.avg_delivery_days,
 			})),
 		});
 	} catch (error) {

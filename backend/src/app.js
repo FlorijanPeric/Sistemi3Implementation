@@ -7,6 +7,7 @@ const recommendationRoutes = require('./routes/recommendations');
 const supplierRoutes = require('./routes/suppliers');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
+const statsRoutes = require('./routes/stats');
 
 const app = express();
 app.use(cors());
@@ -21,6 +22,7 @@ app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/stats', statsRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
