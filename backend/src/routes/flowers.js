@@ -31,7 +31,6 @@ router.get('/', async (req, res, next) => {
 				name: row.ime,
 				unit_price: row.cena_na_enoto,
 				season_start: row.sezonska_dostopnost,
-				season_end: null,
 				availability: row.dobavljivost,
 				offer_start: row.datum_zacetka_ponudbe,
 				offer_end: row.datum_konca_ponudbe,
@@ -51,7 +50,6 @@ router.post('/', authRequired, async (req, res, next) => {
 			name,
 			unit_price,
 			season_start = null,
-			season_end = null,
 			availability = 'in_stock',
 			offer_start = null,
 			offer_end = null,
@@ -71,10 +69,10 @@ router.post('/', authRequired, async (req, res, next) => {
 		}
 
 		const flowerId = randomUUID();
-		const [result] = await pool.query(
+		await pool.query(
 			`INSERT INTO roza
 				(roza_id, ime, cena_na_enoto, sezonska_dostopnost, dobavljivost, datum_zacetka_ponudbe, datum_konca_ponudbe, dobavitelj_id)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)` ,
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			[flowerId, name, unit_price, season_start, availability, offer_start, offer_end, supplierId]
 		);
 
@@ -87,15 +85,7 @@ router.post('/', authRequired, async (req, res, next) => {
 router.put('/:id', authRequired, async (req, res, next) => {
 	try {
 		const flowerId = req.params.id;
-		const {
-			name,
-			unit_price,
-			season_start = null,
-			season_end = null,
-			availability = 'in_stock',
-			offer_start = null,
-			offer_end = null,
-		} = req.body;
+		const { name, unit_price, season_start, availability, offer_start, offer_end } = req.body;
 
 		const [rows] = await pool.query('SELECT dobavitelj_id FROM roza WHERE roza_id = ?', [flowerId]);
 		if (rows.length === 0) {
@@ -106,12 +96,22 @@ router.put('/:id', authRequired, async (req, res, next) => {
 			return res.status(403).json({ ok: false, message: 'forbidden' });
 		}
 
-		await pool.query(
-			`UPDATE roza
-			 SET ime = ?, cena_na_enoto = ?, sezonska_dostopnost = ?, dobavljivost = ?, datum_zacetka_ponudbe = ?, datum_konca_ponudbe = ?
-			 WHERE roza_id = ?`,
-			[name, unit_price, season_start, availability, offer_start, offer_end, flowerId]
-		);
+		const updates = [];
+		const params = [];
+
+		if (name !== undefined)         { updates.push('ime = ?');                    params.push(name); }
+		if (unit_price !== undefined)   { updates.push('cena_na_enoto = ?');          params.push(unit_price); }
+		if (season_start !== undefined) { updates.push('sezonska_dostopnost = ?');    params.push(season_start); }
+		if (availability !== undefined) { updates.push('dobavljivost = ?');           params.push(availability); }
+		if (offer_start !== undefined)  { updates.push('datum_zacetka_ponudbe = ?');  params.push(offer_start); }
+		if (offer_end !== undefined)    { updates.push('datum_konca_ponudbe = ?');    params.push(offer_end); }
+
+		if (updates.length === 0) {
+			return res.status(400).json({ ok: false, message: 'nothing_to_update' });
+		}
+
+		params.push(flowerId);
+		await pool.query(`UPDATE roza SET ${updates.join(', ')} WHERE roza_id = ?`, params);
 
 		res.json({ ok: true });
 	} catch (error) {

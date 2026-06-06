@@ -49,12 +49,20 @@ router.get('/:floristId', authRequired, async (req, res, next) => {
 			};
 		});
 
-		for (const recommendation of recommendations) {
+		await pool.query(
+			'DELETE FROM priporocilo WHERE cvetlicarna_id = ? AND sezona = ? AND datum_izracuna = CURDATE()',
+			[floristId, requestedSeason]
+		);
+
+		if (recommendations.length > 0) {
+			const values = recommendations.map((r) => [
+				randomUUID(), floristId, requestedSeason, r.name, r.suggested_qty,
+			]);
 			await pool.query(
 				`INSERT INTO priporocilo
 					(priporocilo_id, cvetlicarna_id, sezona, predlagana_vrsta, predlagana_kolicina, datum_izracuna)
-				 VALUES (?, ?, ?, ?, ?, CURDATE())`,
-				[randomUUID(), floristId, requestedSeason, recommendation.name, recommendation.suggested_qty]
+				 VALUES ?`,
+				[values.map((v) => [...v, new Date()])]
 			);
 		}
 
