@@ -9,6 +9,7 @@ import Recommendations from './pages/Recommendations'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Suppliers from './pages/Suppliers'
+import Admin from './pages/Admin'
 import { AuthContext } from './context/AuthContext'
 
 function AppShell(){
@@ -52,6 +53,9 @@ function AppShell(){
               <li className="nav-item"><Link className="nav-link premium-nav-link" to="/suppliers">Suppliers</Link></li>
               <li className="nav-item"><Link className="nav-link premium-nav-link" to="/orders">Orders</Link></li>
               <li className="nav-item"><Link className="nav-link premium-nav-link" to="/recommendations">Recommendations</Link></li>
+              {user?.role === 'admin' && (
+                <li className="nav-item"><Link className="nav-link premium-nav-link" to="/admin">Admin</Link></li>
+              )}
             </ul>
             <ul className="navbar-nav ms-auto align-items-lg-center gap-2">
               {token ? (
@@ -85,6 +89,7 @@ function AppShell(){
           <Route path="/suppliers" element={<Suppliers/>} />
           <Route path="/orders" element={<ProtectedRoute><Orders/></ProtectedRoute>} />
           <Route path="/recommendations" element={<ProtectedRoute><Recommendations/></ProtectedRoute>} />
+          <Route path="/admin" element={<Admin/>} />
         </Routes>
       </main>
     </BrowserRouter>

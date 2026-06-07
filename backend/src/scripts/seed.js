@@ -1,5 +1,4 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
-const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
 const pool = require('../config/db');
 
@@ -19,13 +18,13 @@ async function seed() {
 	const fl3UserId  = randomUUID();
 
 	const users = [
-		[adminId,    'admin',     await bcrypt.hash('admin123',    10), 'admin@flowers.local',     today, 'admin',    null],
-		[sup1UserId, 'greengarden', await bcrypt.hash('supplier1', 10), 'sup1@flowers.local',      today, 'supplier', null],
-		[sup2UserId, 'bloomco',   await bcrypt.hash('supplier2',   10), 'sup2@flowers.local',      today, 'supplier', null],
-		[sup3UserId, 'petalfarm', await bcrypt.hash('supplier3',   10), 'sup3@flowers.local',      today, 'supplier', null],
-		[fl1UserId,  'rozice',    await bcrypt.hash('florist1',    10), 'fl1@flowers.local',       today, 'florist',  null],
-		[fl2UserId,  'cvetjezavse', await bcrypt.hash('florist2',  10), 'fl2@flowers.local',       today, 'florist',  null],
-		[fl3UserId,  'zelenaoaza', await bcrypt.hash('florist3',   10), 'fl3@flowers.local',       today, 'florist',  null],
+		[adminId,    'admin',       'admin123',  'admin@flowers.local',  today, 'admin',    null],
+		[sup1UserId, 'greengarden', 'supplier1', 'sup1@flowers.local',   today, 'supplier', null],
+		[sup2UserId, 'bloomco',     'supplier2', 'sup2@flowers.local',   today, 'supplier', null],
+		[sup3UserId, 'petalfarm',   'supplier3', 'sup3@flowers.local',   today, 'supplier', null],
+		[fl1UserId,  'rozice',      'florist1',  'fl1@flowers.local',    today, 'florist',  null],
+		[fl2UserId,  'cvetjezavse', 'florist2',  'fl2@flowers.local',    today, 'florist',  null],
+		[fl3UserId,  'zelenaoaza',  'florist3',  'fl3@flowers.local',    today, 'florist',  null],
 	];
 
 	await pool.query(

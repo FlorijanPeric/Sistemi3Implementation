@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { randomUUID } = require('crypto');
 const pool = require('../config/db');
@@ -40,10 +39,9 @@ router.post('/register', async (req, res, next) => {
 
 		const userId = randomUUID();
 		const assignedDate = new Date().toISOString().slice(0, 10);
-		const passwordHash = await bcrypt.hash(password, 10);
 		await pool.query(
 			'INSERT INTO uporabnik (uporabnik_id, uporabnisko_ime, geslo, e_posta, datum_dodelitve_vloge, vloga, obdobje_veljavnosti) VALUES (?, ?, ?, ?, ?, ?, ?)',
-			[userId, username, passwordHash, email, assignedDate, role, null]
+			[userId, username, password, email, assignedDate, role, null]
 		);
 		let floristId = null;
 		let supplierId = null;
@@ -107,9 +105,7 @@ router.post('/login', async (req, res, next) => {
 		}
 
 		const user = rows[0];
-		const passwordMatches = await bcrypt.compare(password, user.geslo);
-
-		if (!passwordMatches) {
+		if (password !== user.geslo) {
 			return res.status(401).json({ ok: false, message: 'invalid_credentials' });
 		}
 
