@@ -22,7 +22,8 @@ function createToken(user) {
 
 router.post('/register', async (req, res, next) => {
 	try {
-		const { username, email, password, role = 'florist' } = req.body;
+		const { username, email, password } = req.body;
+		const role = ['florist', 'supplier'].includes(req.body.role) ? req.body.role : 'florist';
 
 		if (!username || !email || !password) {
 			return res.status(400).json({ ok: false, message: 'missing_fields' });
@@ -127,8 +128,43 @@ router.post('/login', async (req, res, next) => {
 	}
 });
 
-router.get('/me', async (req, res) => {
-	return res.json({ ok: true, message: 'use JWT token to identify the current user' });
+router.get('/me', async (req, res, next) => {
+	const header = req.headers.authorization || '';
+	const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+	if (!token) return res.status(401).json({ ok: false, message: 'missing_token' });
+
+	try {
+		const jwt = require('jsonwebtoken');
+		const payload = jwt.verify(token, process.env.JWT_SECRET || 'flower-secret');
+
+		const [rows] = await pool.query(
+			`SELECT u.uporabnik_id, u.uporabnisko_ime, u.e_posta, u.vloga,
+				c.cvetlicarna_id, d.dobavitelj_id
+			 FROM uporabnik u
+			 LEFT JOIN cvetlicarna c ON c.uporabnik_id = u.uporabnik_id
+			 LEFT JOIN dobavitelj d ON d.uporabnik_id = u.uporabnik_id
+			 WHERE u.uporabnik_id = ?
+			 LIMIT 1`,
+			[payload.userId]
+		);
+
+		if (rows.length === 0) return res.status(404).json({ ok: false, message: 'not_found' });
+
+		const u = rows[0];
+		return res.json({
+			ok: true,
+			user: {
+				user_id: u.uporabnik_id,
+				username: u.uporabnisko_ime,
+				email: u.e_posta,
+				role: u.vloga,
+				florist_id: u.cvetlicarna_id || null,
+				supplier_id: u.dobavitelj_id || null,
+			},
+		});
+	} catch (error) {
+		return res.status(401).json({ ok: false, message: 'invalid_token' });
+	}
 });
 
 module.exports = router;

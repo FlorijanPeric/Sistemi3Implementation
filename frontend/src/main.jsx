@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
@@ -10,16 +9,3 @@ createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 )
-=======
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import './styles.css'
-
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
->>>>>>> Frontend

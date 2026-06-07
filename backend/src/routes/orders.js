@@ -138,6 +138,11 @@ router.post('/', authRequired, async (req, res, next) => {
 			[orderId, floristId, null, 'v obdelavi']
 		);
 
+		await pool.query(
+			'INSERT INTO zgodovina_narocil (zgodovina_id, narocilo_id, status, datum_spremembe) VALUES (?, ?, ?, CURDATE())',
+			[randomUUID(), orderId, 'v obdelavi']
+		);
+
 		for (const item of items) {
 			const flower = flowerMap.get(item.flower_id);
 			const quantity = Number(item.quantity) || 0;
@@ -165,6 +170,11 @@ router.put('/:id', authRequired, async (req, res, next) => {
 			return res.status(400).json({ ok: false, message: 'missing_status' });
 		}
 
+		const allowed = ['v obdelavi', 'potrjeno', 'dostavljeno', 'preklicano', 'zavrnjeno'];
+		if (!allowed.includes(status)) {
+			return res.status(400).json({ ok: false, message: 'invalid_status' });
+		}
+
 		const [orders] = await pool.query('SELECT cvetlicarna_id, status FROM narocilo WHERE narocilo_id = ?', [orderId]);
 		if (orders.length === 0) {
 			return res.status(404).json({ ok: false, message: 'not_found' });
@@ -175,25 +185,64 @@ router.put('/:id', authRequired, async (req, res, next) => {
 		}
 
 		await pool.query('UPDATE narocilo SET status = ? WHERE narocilo_id = ?', [status, orderId]);
+		await pool.query(
+			'INSERT INTO zgodovina_narocil (zgodovina_id, narocilo_id, status, datum_spremembe) VALUES (?, ?, ?, CURDATE())',
+			[randomUUID(), orderId, status]
+		);
 		res.json({ ok: true });
 	} catch (error) {
 		next(error);
 	}
 });
 
+// Supplier accepts order and optionally sets delivery date
 router.post('/:id/accept', authRequired, async (req, res, next) => {
 	try {
 		const orderId = req.params.id;
-		const [orders] = await pool.query('SELECT narocilo_id FROM narocilo WHERE narocilo_id = ?', [orderId]);
-		if (orders.length === 0) {
-			return res.status(404).json({ ok: false, message: 'not_found' });
-		}
+		const { delivery_date } = req.body;
 
 		if (req.user.role !== 'supplier' && req.user.role !== 'admin') {
 			return res.status(403).json({ ok: false, message: 'forbidden' });
 		}
 
-		await pool.query('UPDATE narocilo SET status = ? WHERE narocilo_id = ?', ['potrjeno', orderId]);
+		const [orders] = await pool.query('SELECT narocilo_id FROM narocilo WHERE narocilo_id = ?', [orderId]);
+		if (orders.length === 0) {
+			return res.status(404).json({ ok: false, message: 'not_found' });
+		}
+
+		await pool.query(
+			'UPDATE narocilo SET status = ?, datum_dostave = ? WHERE narocilo_id = ?',
+			['potrjeno', delivery_date || null, orderId]
+		);
+		await pool.query(
+			'INSERT INTO zgodovina_narocil (zgodovina_id, narocilo_id, status, datum_spremembe) VALUES (?, ?, ?, CURDATE())',
+			[randomUUID(), orderId, 'potrjeno']
+		);
+		res.json({ ok: true });
+	} catch (error) {
+		next(error);
+	}
+});
+
+// Supplier rejects order
+router.post('/:id/reject', authRequired, async (req, res, next) => {
+	try {
+		const orderId = req.params.id;
+
+		if (req.user.role !== 'supplier' && req.user.role !== 'admin') {
+			return res.status(403).json({ ok: false, message: 'forbidden' });
+		}
+
+		const [orders] = await pool.query('SELECT narocilo_id FROM narocilo WHERE narocilo_id = ?', [orderId]);
+		if (orders.length === 0) {
+			return res.status(404).json({ ok: false, message: 'not_found' });
+		}
+
+		await pool.query('UPDATE narocilo SET status = ? WHERE narocilo_id = ?', ['zavrnjeno', orderId]);
+		await pool.query(
+			'INSERT INTO zgodovina_narocil (zgodovina_id, narocilo_id, status, datum_spremembe) VALUES (?, ?, ?, CURDATE())',
+			[randomUUID(), orderId, 'zavrnjeno']
+		);
 		res.json({ ok: true });
 	} catch (error) {
 		next(error);
