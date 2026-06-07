@@ -10,6 +10,11 @@ export async function getOrders() {
   return res.data
 }
 
+export async function getOrder(id) {
+  const res = await client.get(`/orders/${id}`)
+  return res.data
+}
+
 export async function cancelOrder(id) {
   const res = await client.put(`/orders/${id}`, { status: 'preklicano' })
   return res.data
